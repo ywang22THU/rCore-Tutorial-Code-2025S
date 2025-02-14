@@ -1,7 +1,7 @@
 //! Types related to task management & Functions for completely changing TCB
 use super::TaskContext;
 use super::{kstack_alloc, pid_alloc, KernelStack, PidHandle};
-use crate::config::TRAP_CONTEXT_BASE;
+use crate::config::{MAX_SYSCALL_NUM, TRAP_CONTEXT_BASE};
 use crate::mm::{MemorySet, PhysPageNum, VirtAddr, KERNEL_SPACE};
 use crate::sync::UPSafeCell;
 use crate::trap::{trap_handler, TrapContext};
@@ -49,6 +49,9 @@ pub struct TaskControlBlockInner {
 
     /// Maintain the execution status of the current process
     pub task_status: TaskStatus,
+
+    /// The syscall times for this task
+    pub task_syscall_times: [u32; MAX_SYSCALL_NUM],
 
     /// Application address space
     pub memory_set: MemorySet,
@@ -112,6 +115,7 @@ impl TaskControlBlock {
                     base_size: user_sp,
                     task_cx: TaskContext::goto_trap_return(kernel_stack_top),
                     task_status: TaskStatus::Ready,
+                    task_syscall_times: [0; MAX_SYSCALL_NUM],
                     memory_set,
                     parent: None,
                     children: Vec::new(),
@@ -185,6 +189,7 @@ impl TaskControlBlock {
                     base_size: parent_inner.base_size,
                     task_cx: TaskContext::goto_trap_return(kernel_stack_top),
                     task_status: TaskStatus::Ready,
+                    task_syscall_times: [0; MAX_SYSCALL_NUM],
                     memory_set,
                     parent: Some(Arc::downgrade(self)),
                     children: Vec::new(),

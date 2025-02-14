@@ -25,6 +25,40 @@ impl TaskManager {
     pub fn fetch(&mut self) -> Option<Arc<TaskControlBlock>> {
         self.ready_queue.pop_front()
     }
+
+
+    /// Get the syscall times of current task
+    #[allow(unused)]
+    fn get_current_task_syscall_times(&self, _syscall_id: usize) -> u32 {
+        // let inner = self.inner.exclusive_access();
+        // let current = inner.current_task;
+        // inner.tasks[current].task_syscall_times[syscall_id]
+        0
+    }
+
+    /// Update the syscall times of current task by syscall id
+    #[allow(unused)]
+    fn update_current_task_syscall_times(&self, _syscall_id: usize){
+        // let mut inner = self.inner.exclusive_access();
+        // let current = inner.current_task;
+        // inner.tasks[current].task_syscall_times[syscall_id] += 1;
+    }
+
+    #[allow(unused)]
+    fn malloc_in_current_task_memory_set(&self, _start: usize, _len: usize, _port: usize) -> isize {
+        // let mut inner = self.inner.exclusive_access();
+        // let current = inner.current_task;
+        // inner.tasks[current].memory_set.mmap(start, len, port)
+        -1
+    }
+
+    #[allow(unused)]
+    fn free_in_current_task_memory_set(&self, _start: usize, _len: usize) -> isize {
+        // let mut inner = self.inner.exclusive_access();
+        // let current = inner.current_task;
+        // inner.tasks[current].memory_set.munmap(start, len)
+        -1
+    }
 }
 
 lazy_static! {
