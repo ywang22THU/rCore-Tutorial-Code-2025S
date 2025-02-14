@@ -15,7 +15,7 @@ mod switch;
 mod task;
 
 use crate::config::{MAX_APP_NUM, MAX_SYSCALL_NUM};
-use crate::loader::{get_base_i, get_num_app, init_app_cx};
+use crate::loader::{get_num_app, init_app_cx};
 use crate::sync::UPSafeCell;
 use lazy_static::*;
 use switch::__switch;
@@ -151,26 +151,6 @@ impl TaskManager {
         inner.tasks[current].task_syscall_times[syscall_id] += 1;
     }
 
-    /// read a byte in current task
-    fn read_in_current_task(&self, ptr: usize) -> u8 {
-        let inner = self.inner.exclusive_access();
-        let current = inner.current_task;
-        let addr = (ptr + get_base_i(current)) as *const u8;
-        unsafe {
-            addr.read_volatile()
-        }
-    }
-
-    /// write a byte in current task
-    fn write_in_current_task(&self, ptr: usize, data: u8){
-        let inner = self.inner.exclusive_access();
-        let current = inner.current_task;
-        let addr = (ptr + get_base_i(current)) as *mut u8;
-        unsafe {
-            *addr = data;
-        }
-    }
-
 }
 
 /// Run the first task in task list.
@@ -214,14 +194,4 @@ pub fn get_current_syscall_times(syscall_id: usize) -> u32 {
 /// Update the syscall times of current task by syscall id
 pub fn update_current_syscall_times(syscall_id: usize) {
     TASK_MANAGER.update_current_task_syscall_times(syscall_id);
-}
-
-/// read a byte in current task
-pub fn read_byte_in_current_task(ptr: usize) -> u8 {
-    TASK_MANAGER.read_in_current_task(ptr)
-}
-
-/// write a byte in current task
-pub fn write_byte_in_current_task(ptr: usize, data: u8){
-    TASK_MANAGER.write_in_current_task(ptr, data);
 }
