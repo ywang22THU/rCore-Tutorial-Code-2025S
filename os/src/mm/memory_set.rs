@@ -262,6 +262,69 @@ impl MemorySet {
             false
         }
     }
+
+    /// alloc a new physical memory
+    #[allow(unused)]
+    pub fn mmap(&mut self, start: usize, len: usize, port: usize) -> isize {
+        if VirtAddr::from(start).page_offset() != 0  // invalid alignment
+            || port & !0x7 != 0       // invalid valid bits
+            || port & 0x7 == 0        // meaningless page
+        {
+            return -1
+        }
+        let mut flags = PTEFlags::from_bits(port as u8).unwrap();
+        flags |= PTEFlags::V;
+        flags |= PTEFlags::U;
+        if port & 0x1 == 1 {
+            flags |= PTEFlags::R
+        }
+        if port & 0x2 != 0 {
+            flags |= PTEFlags::W;
+        }
+        if port & 0x4 != 0 {
+            flags |= PTEFlags::X
+        }
+        let mut ptr = start;
+        while ptr < start + len {
+            let vpn = VirtAddr::from(ptr).floor();
+            if let Some(pte) = self.translate(vpn) {
+                if pte.is_valid(){
+                    return -1
+                }
+            }
+            if let Some(frame) = frame_alloc() {
+                self.page_table.map(vpn, frame.ppn, flags);
+            }
+            else {
+                return -1
+            }
+            ptr += PAGE_SIZE;
+        }
+        0
+    }
+
+    /// alloc a new physical memory
+    #[allow(unused)]
+    pub fn munmap(&mut self, start: usize, len: usize) -> isize {
+        let mut ptr = start;
+        while ptr < start + len {
+            let vpn = VirtAddr::from(ptr).floor();
+            if let Some(pte) = self.translate(vpn) {
+                if !pte.is_valid() {
+                    return -1
+                }
+                else {
+                    self.page_table.unmap(vpn);
+                }
+            }
+            else {
+                return -1
+            }
+            ptr += PAGE_SIZE;
+        }
+        0
+    }
+
 }
 /// map area structure, controls a contiguous piece of virtual memory
 pub struct MapArea {

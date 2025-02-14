@@ -168,6 +168,18 @@ impl TaskManager {
         inner.tasks[current].task_syscall_times[syscall_id] += 1;
     }
 
+    fn malloc_in_current_task_memory_set(&self, start: usize, len: usize, port: usize) -> isize {
+        let mut inner = self.inner.exclusive_access();
+        let current = inner.current_task;
+        inner.tasks[current].memory_set.mmap(start, len, port)
+    }
+
+    fn free_in_current_task_memory_set(&self, start: usize, len: usize) -> isize {
+        let mut inner = self.inner.exclusive_access();
+        let current = inner.current_task;
+        inner.tasks[current].memory_set.munmap(start, len)
+    }
+
 }
 
 /// Run the first task in task list.
@@ -226,4 +238,14 @@ pub fn get_current_syscall_times(syscall_id: usize) -> u32 {
 /// Update the syscall times of current task by syscall id
 pub fn update_current_syscall_times(syscall_id: usize) {
     TASK_MANAGER.update_current_task_syscall_times(syscall_id);
+}
+
+/// alloc physical memory length with [len], beginning with [start], permission [port]
+pub fn malloc_in_current_memory_set(start: usize, len: usize, port: usize) -> isize {
+    TASK_MANAGER.malloc_in_current_task_memory_set(start, len, port)
+}
+
+/// free physical memory length with [len], beginning with [start]
+pub fn free_in_current_memory_set(start: usize, len: usize) -> isize {
+    TASK_MANAGER.free_in_current_task_memory_set(start, len)
 }
