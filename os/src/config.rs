@@ -23,3 +23,5 @@ pub const CLOCK_FREQ: usize = 12500000;
 pub const MEMORY_END: usize = 0x88000000;
 /// the max syscall times
 pub const MAX_SYSCALL_NUM: usize = 500;
+/// the big stride
+pub const BIG_STRIDE: usize = 1 << 28;
