@@ -272,32 +272,28 @@ impl MemorySet {
         {
             return -1
         }
-        let mut flags = PTEFlags::from_bits(port as u8).unwrap();
-        flags |= PTEFlags::V;
-        flags |= PTEFlags::U;
+        let mut mem_perm = MapPermission::empty();
+        mem_perm |= MapPermission::U;
         if port & 0x1 == 1 {
-            flags |= PTEFlags::R
+            mem_perm |= MapPermission::R;
         }
         if port & 0x2 != 0 {
-            flags |= PTEFlags::W;
+            mem_perm |= MapPermission::W;
         }
         if port & 0x4 != 0 {
-            flags |= PTEFlags::X
+            mem_perm |= MapPermission::X;
         }
         let mut ptr = start;
         while ptr < start + len {
-            let vpn = VirtAddr::from(ptr).floor();
-            if let Some(pte) = self.translate(vpn) {
+            // let vpn = VirtAddr::from(ptr).floor();
+            let start_va = VirtAddr::from(ptr);
+            let end_va = VirtAddr::from(ptr + PAGE_SIZE - 1);
+            if let Some(pte) = self.translate(start_va.floor()) {
                 if pte.is_valid(){
                     return -1
                 }
             }
-            if let Some(frame) = frame_alloc() {
-                self.page_table.map(vpn, frame.ppn, flags);
-            }
-            else {
-                return -1
-            }
+            self.insert_framed_area(start_va, end_va, mem_perm);
             ptr += PAGE_SIZE;
         }
         0
@@ -315,6 +311,7 @@ impl MemorySet {
                 }
                 else {
                     self.page_table.unmap(vpn);
+                    self.areas.retain(|x| x.vpn_range.get_start() != vpn);
                 }
             }
             else {
