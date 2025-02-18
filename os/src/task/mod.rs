@@ -104,6 +104,8 @@ pub fn exit_current_and_run_next(exit_code: i32) {
     schedule(&mut _unused as *mut _);
 }
 
+
+
 lazy_static! {
     /// Creation of initial process
     ///
@@ -120,3 +122,27 @@ lazy_static! {
 pub fn add_initproc() {
     add_task(INITPROC.clone());
 }
+
+/// Get the especial syscall time of current task
+pub fn get_current_syscall_times(_syscall_id: usize) -> u32 {
+    // TASK_MANAGER.get_current_task_syscall_times(syscall_id)
+    0
+}
+
+/// Update the syscall times of current task by syscall id
+pub fn update_current_syscall_times(_syscall_id: usize) {
+    // TASK_MANAGER.update_current_task_syscall_times(syscall_id);
+}
+
+/// alloc physical memory length with [len], beginning with [start], permission [port]
+pub fn malloc_in_current_memory_set(_start: usize, _len: usize, _port: usize) -> isize {
+    // TASK_MANAGER.malloc_in_current_task_memory_set(start, len, port)
+    -1
+}
+
+/// free physical memory length with [len], beginning with [start]
+pub fn free_in_current_memory_set(_start: usize, _len: usize) -> isize {
+    // TASK_MANAGER.free_in_current_task_memory_set(start, len)
+    -1
+}
+

@@ -11,6 +11,8 @@ use crate::{
         suspend_current_and_run_next, TaskStatus,
     },
 };
+use crate::config::BIG_STRIDE;
+use crate::timer::{get_time_s, get_time_us};
 
 #[repr(C)]
 #[derive(Debug)]
@@ -117,17 +119,23 @@ pub fn sys_waitpid(pid: isize, exit_code_ptr: *mut i32) -> isize {
 /// YOUR JOB: get time with second and microsecond
 /// HINT: You might reimplement it with virtual memory management.
 /// HINT: What if [`TimeVal`] is splitted by two pages ?
-pub fn sys_get_time(_ts: *mut TimeVal, _tz: usize) -> isize {
+pub fn sys_get_time(ts: *mut TimeVal, _tz: usize) -> isize {
     trace!(
         "kernel:pid[{}] sys_get_time NOT IMPLEMENTED",
         current_task().unwrap().pid.0
     );
-    -1
+    let ptr = translated_refmut(current_user_token(), ts);
+    *ptr = TimeVal {
+        sec: get_time_s(),
+        usec: get_time_us()
+    };
+    0
 }
 
 /// YOUR JOB: Finish sys_task_info to pass testcases
 /// HINT: You might reimplement it with virtual memory management.
 /// HINT: What if [`TaskInfo`] is splitted by two pages ?
+#[allow(unused)]
 pub fn sys_task_info(_ti: *mut TaskInfo) -> isize {
     trace!(
         "kernel:pid[{}] sys_task_info NOT IMPLEMENTED",
@@ -137,21 +145,21 @@ pub fn sys_task_info(_ti: *mut TaskInfo) -> isize {
 }
 
 /// YOUR JOB: Implement mmap.
-pub fn sys_mmap(_start: usize, _len: usize, _port: usize) -> isize {
+pub fn sys_mmap(start: usize, len: usize, port: usize) -> isize {
     trace!(
-        "kernel:pid[{}] sys_mmap NOT IMPLEMENTED",
+        "kernel:pid[{}] sys_mmap",
         current_task().unwrap().pid.0
     );
-    -1
+    current_task().unwrap().inner_exclusive_access().memory_set.mmap(start, len, port)
 }
 
 /// YOUR JOB: Implement munmap.
-pub fn sys_munmap(_start: usize, _len: usize) -> isize {
+pub fn sys_munmap(start: usize, len: usize) -> isize {
     trace!(
-        "kernel:pid[{}] sys_munmap NOT IMPLEMENTED",
+        "kernel:pid[{}] sys_munmap",
         current_task().unwrap().pid.0
     );
-    -1
+    current_task().unwrap().inner_exclusive_access().memory_set.munmap(start, len)
 }
 
 /// change data segment size
@@ -168,17 +176,39 @@ pub fn sys_sbrk(size: i32) -> isize {
 /// HINT: fork + exec =/= spawn
 pub fn sys_spawn(_path: *const u8) -> isize {
     trace!(
-        "kernel:pid[{}] sys_spawn NOT IMPLEMENTED",
+        "kernel:pid[{}] sys_spawn",
         current_task().unwrap().pid.0
     );
     -1
+    // let token = current_user_token();
+    // let path = translated_str(token, path);
+    // if let Some(data) = get_app_data_by_name(path.as_str()) {
+    //     let current_task = current_task().unwrap();
+    //     let new_task = current_task.spawn(data);
+    //     let new_pid = new_task.pid.0;
+    //     let trap_cx = new_task.inner_exclusive_access().get_trap_cx();
+    //     trap_cx.x[10] = 0;
+    //     add_task(new_task);
+    //     new_pid as isize
+    // } else {
+    //     -1
+    // }
 }
 
-// YOUR JOB: Set task priority.
-pub fn sys_set_priority(_prio: isize) -> isize {
+/// YOUR JOB: Set task priority.
+pub fn sys_set_priority(prio: isize) -> isize {
     trace!(
-        "kernel:pid[{}] sys_set_priority NOT IMPLEMENTED",
+        "kernel:pid[{}] sys_set_priority",
         current_task().unwrap().pid.0
     );
-    -1
+    if prio < 2 {
+        -1
+    }
+    else {
+        let current_task = current_task().unwrap();
+        let mut inner = current_task.inner_exclusive_access();
+        inner.priority = prio as usize;
+        inner.pass = BIG_STRIDE / prio as usize;
+        prio
+    }
 }

@@ -318,6 +318,66 @@ impl MemorySet {
             false
         }
     }
+
+    /// alloc a new physical memory
+    #[allow(unused)]
+    pub fn mmap(&mut self, start: usize, len: usize, port: usize) -> isize {
+        if VirtAddr::from(start).page_offset() != 0  // invalid alignment
+            || port & !0x7 != 0       // invalid valid bits
+            || port & 0x7 == 0        // meaningless page
+        {
+            return -1
+        }
+        let mut mem_perm = MapPermission::empty();
+        mem_perm |= MapPermission::U;
+        if port & 0x1 == 1 {
+            mem_perm |= MapPermission::R;
+        }
+        if port & 0x2 != 0 {
+            mem_perm |= MapPermission::W;
+        }
+        if port & 0x4 != 0 {
+            mem_perm |= MapPermission::X;
+        }
+        let mut ptr = start;
+        while ptr < start + len {
+            // let vpn = VirtAddr::from(ptr).floor();
+            let start_va = VirtAddr::from(ptr);
+            let end_va = VirtAddr::from(ptr + PAGE_SIZE - 1);
+            if let Some(pte) = self.translate(start_va.floor()) {
+                if pte.is_valid(){
+                    return -1
+                }
+            }
+            self.insert_framed_area(start_va, end_va, mem_perm);
+            ptr += PAGE_SIZE;
+        }
+        0
+    }
+
+    /// alloc a new physical memory
+    #[allow(unused)]
+    pub fn munmap(&mut self, start: usize, len: usize) -> isize {
+        let mut ptr = start;
+        while ptr < start + len {
+            let vpn = VirtAddr::from(ptr).floor();
+            if let Some(pte) = self.translate(vpn) {
+                if !pte.is_valid() {
+                    return -1
+                }
+                else {
+                    self.page_table.unmap(vpn);
+                    self.areas.retain(|x| x.vpn_range.get_start() != vpn);
+                }
+            }
+            else {
+                return -1
+            }
+            ptr += PAGE_SIZE;
+        }
+        0
+    }
+
 }
 /// map area structure, controls a contiguous piece of virtual memory
 pub struct MapArea {
