@@ -68,7 +68,7 @@ impl SuperBlock {
     }
 }
 /// Type of a disk inode
-#[derive(PartialEq)]
+#[derive(PartialEq, Debug)]
 pub enum DiskInodeType {
     File,
     Directory,
@@ -86,17 +86,21 @@ pub struct DiskInode {
     pub indirect1: u32,
     pub indirect2: u32,
     type_: DiskInodeType,
+    pub inode_id: u32,
+    pub nlinks: u32
 }
 
 impl DiskInode {
     /// Initialize a disk inode, as well as all direct inodes under it
     /// indirect1 and indirect2 block are allocated only when they are needed
-    pub fn initialize(&mut self, type_: DiskInodeType) {
+    pub fn initialize(&mut self, type_: DiskInodeType, inode_id: u32) {
         self.size = 0;
         self.direct.iter_mut().for_each(|v| *v = 0);
         self.indirect1 = 0;
         self.indirect2 = 0;
         self.type_ = type_;
+        self.inode_id = inode_id;
+        self.nlinks = 1;
     }
     /// Whether this inode is a directory
     pub fn is_dir(&self) -> bool {

@@ -6,6 +6,18 @@ use alloc::string::String;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
 use spin::{Mutex, MutexGuard};
+
+/// The state for a file
+#[derive(Debug)]
+pub struct FileStat {
+    /// inode number
+    pub ino: u64,
+    /// file type and mode
+    pub is_file: bool,
+    /// number of hard links
+    pub nlink: u32,
+}
+
 /// Virtual filesystem layer over easy-fs
 pub struct Inode {
     block_id: usize,
@@ -110,7 +122,7 @@ impl Inode {
         get_block_cache(new_inode_block_id as usize, Arc::clone(&self.block_device))
             .lock()
             .modify(new_inode_block_offset, |new_inode: &mut DiskInode| {
-                new_inode.initialize(DiskInodeType::File);
+                new_inode.initialize(DiskInodeType::File, new_inode_block_id);
             });
         self.modify_disk_inode(|root_inode| {
             // append file in the dirent
@@ -182,5 +194,16 @@ impl Inode {
             }
         });
         block_cache_sync_all();
+    }
+
+    /// Get the state for current inode
+    pub fn get_stat(&self) -> FileStat {
+        self.read_disk_inode(|disk_inode| {
+            FileStat {
+                ino: disk_inode.inode_id as u64,
+                is_file: disk_inode.is_file(),
+                nlink: disk_inode.nlinks,
+            }
+        })
     }
 }
