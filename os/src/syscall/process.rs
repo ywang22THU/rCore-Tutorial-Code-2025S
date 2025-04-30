@@ -3,12 +3,11 @@
 use alloc::sync::Arc;
 
 use crate::{
-    config::MAX_SYSCALL_NUM,
     fs::{open_file, OpenFlags},
     mm::{translated_refmut, translated_str},
     task::{
         add_task, current_task, current_user_token, exit_current_and_run_next,
-        suspend_current_and_run_next, TaskStatus,
+        suspend_current_and_run_next,
     },
 };
 use crate::config::BIG_STRIDE;
@@ -19,17 +18,6 @@ use crate::timer::{get_time_s, get_time_us};
 pub struct TimeVal {
     pub sec: usize,
     pub usec: usize,
-}
-
-/// Task information
-#[allow(dead_code)]
-pub struct TaskInfo {
-    /// Task status in it's life cycle
-    status: TaskStatus,
-    /// The numbers of syscall called by task
-    syscall_times: [u32; MAX_SYSCALL_NUM],
-    /// Total running time of task
-    time: usize,
 }
 
 pub fn sys_exit(exit_code: i32) -> ! {
@@ -124,12 +112,7 @@ pub fn sys_get_time(ts: *mut TimeVal, _tz: usize) -> isize {
         "kernel:pid[{}] sys_get_time NOT IMPLEMENTED",
         current_task().unwrap().pid.0
     );
-    let ptr = translated_refmut(current_user_token(), ts);
-    *ptr = TimeVal {
-        sec: get_time_s(),
-        usec: get_time_us()
-    };
-    0
+    -1
 }
 
 /// YOUR JOB: Implement mmap.
