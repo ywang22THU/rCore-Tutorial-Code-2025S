@@ -23,6 +23,9 @@ pub fn get_time() -> usize {
     time::read()
 }
 
+/// get current time in seconds
+pub fn get_time_s() -> usize { time::read() / CLOCK_FREQ }
+
 /// Get the current time in milliseconds
 pub fn get_time_ms() -> usize {
     time::read() * MSEC_PER_SEC / CLOCK_FREQ

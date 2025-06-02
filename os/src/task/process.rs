@@ -2,7 +2,7 @@
 
 use super::id::RecycleAllocator;
 use super::manager::insert_into_pid2process;
-use super::TaskControlBlock;
+use super::{current_task, TaskControlBlock};
 use super::{add_task, SignalFlags};
 use super::{pid_alloc, PidHandle};
 use crate::fs::{File, Stdin, Stdout};
@@ -49,6 +49,20 @@ pub struct ProcessControlBlockInner {
     pub semaphore_list: Vec<Option<Arc<Semaphore>>>,
     /// condvar list
     pub condvar_list: Vec<Option<Arc<Condvar>>>,
+    /// available mutex resource
+    pub mutex_num: Vec<isize>,
+    /// available semaphore resource
+    pub semaphore_num: Vec<isize>,
+    /// enable deadlock
+    pub detecting_deadlock: bool,
+    /// mutex need
+    pub mutex_need: Vec<Vec<isize>>,
+    /// mutex allocation
+    pub mutex_allocation: Vec<Vec<isize>>,
+    /// semaphore need
+    pub semaphore_need: Vec<Vec<isize>>,
+    /// semaphore allocation
+    pub semaphore_allocation: Vec<Vec<isize>>,
 }
 
 impl ProcessControlBlockInner {
@@ -81,6 +95,109 @@ impl ProcessControlBlockInner {
     /// get a task with tid in this process
     pub fn get_task(&self, tid: usize) -> Arc<TaskControlBlock> {
         self.tasks[tid].as_ref().unwrap().clone()
+    }
+
+    /// increase or decrease need or allocation vector
+    pub fn change_info_vector(&mut self, index: usize, delta: isize, is_mutex: bool, is_need: bool) {
+        let tid = current_task().unwrap().inner_exclusive_access().res.as_ref().unwrap().tid;
+        let vector = match (is_mutex, is_need) {
+            (true, true) => &mut self.mutex_need[tid],
+            (true, false) => &mut self.mutex_allocation[tid],
+            (false, true) => &mut self.semaphore_need[tid],
+            (false, false) => &mut self.semaphore_allocation[tid],
+        };
+        if let Some(value) = vector.get_mut(index) {
+            *value += delta;
+        } else {
+            vector.resize(index, 0);
+            vector.push(delta);
+        }
+    }
+
+    /// clear all the info
+    pub fn clear_info_vector(&mut self) {
+        self.mutex_num.clear();
+        self.semaphore_num.clear();
+        self.mutex_need.clear();
+        self.mutex_allocation.clear();
+        self.semaphore_need.clear();
+        self.semaphore_allocation.clear();
+        let n = 5;
+        self.mutex_need.resize(n, Vec::new());
+        self.mutex_allocation.resize(n, Vec::new());
+        self.semaphore_need.resize(n, Vec::new());
+        self.semaphore_allocation.resize(n, Vec::new());
+    }
+
+    /// sync
+    pub fn sync_info_vector(&mut self, is_mutex: bool){
+        let (need, allocation, resource_len) = if is_mutex {
+            (&mut self.mutex_need, &mut self.mutex_allocation, self.mutex_num.len())
+        }
+        else {
+            (&mut self.semaphore_need, &mut self.semaphore_allocation, self.semaphore_num.len())
+        };
+        let common_len = usize::min(need.len(), allocation.len());
+
+        for i in 0..common_len {
+            // 获取当前需要处理的内部向量
+            let need_inner = &mut need[i];
+            let alloc_inner = &mut allocation[i];
+            need_inner.resize(resource_len, 0);
+            alloc_inner.resize(resource_len, 0);
+        }
+    }
+
+    /// 1
+    pub fn print_info(&self, is_mutex: bool) {
+        if is_mutex {
+            println!("Available Mutex Resources:");
+            for (i, &num) in self.mutex_num.iter().enumerate() {
+                println!("  Mutex {}: {}", i, num);
+            }
+            println!("\nMutex Need Matrix:");
+            for (i, row) in self.mutex_need.iter().enumerate() {
+                print!("  Process {}: [", i);
+                for (j, &val) in row.iter().enumerate() {
+                    if j > 0 { print!(", "); }
+                    print!("{}", val);
+                }
+                println!("]");
+            }
+            println!("\nMutex Allocation Matrix:");
+            for (i, row) in self.mutex_allocation.iter().enumerate() {
+                print!("  Process {}: [", i);
+                for (j, &val) in row.iter().enumerate() {
+                    if j > 0 { print!(", "); }
+                    print!("{}", val);
+                }
+                println!("]");
+            }
+        }
+        else {
+            println!("\nAvailable Semaphore Resources:");
+            for (i, &num) in self.semaphore_num.iter().enumerate() {
+                println!("  Semaphore {}: {}", i, num);
+            }
+            println!("\nSemaphore Need Matrix:");
+            for (i, row) in self.semaphore_need.iter().enumerate() {
+                print!("  Process {}: [", i);
+                for (j, &val) in row.iter().enumerate() {
+                    if j > 0 { print!(", "); }
+                    print!("{}", val);
+                }
+                println!("]");
+            }
+            println!("\nSemaphore Allocation Matrix:");
+            for (i, row) in self.semaphore_allocation.iter().enumerate() {
+                print!("  Process {}: [", i);
+                for (j, &val) in row.iter().enumerate() {
+                    if j > 0 { print!(", "); }
+                    print!("{}", val);
+                }
+                println!("]");
+            }
+        }
     }
 }
 
@@ -119,6 +236,13 @@ impl ProcessControlBlock {
                     mutex_list: Vec::new(),
                     semaphore_list: Vec::new(),
                     condvar_list: Vec::new(),
+                    mutex_num: Vec::new(),
+                    semaphore_num: Vec::new(),
+                    detecting_deadlock: false,
+                    mutex_need: Vec::new(),
+                    mutex_allocation: Vec::new(),
+                    semaphore_need: Vec::new(),
+                    semaphore_allocation: Vec::new(),
                 })
             },
         });
@@ -245,6 +369,13 @@ impl ProcessControlBlock {
                     mutex_list: Vec::new(),
                     semaphore_list: Vec::new(),
                     condvar_list: Vec::new(),
+                    mutex_num: Vec::new(),
+                    semaphore_num: Vec::new(),
+                    detecting_deadlock: false,
+                    mutex_need: Vec::new(),
+                    mutex_allocation: Vec::new(),
+                    semaphore_need: Vec::new(),
+                    semaphore_allocation: Vec::new(),
                 })
             },
         });
